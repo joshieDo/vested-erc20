@@ -56,7 +56,8 @@ contract VestedERC20Factory {
         uint8 decimals,
         address underlying,
         uint64 startTimestamp,
-        uint64 endTimestamp
+        uint64 endTimestamp,
+        address owner
     ) external returns (VestedERC20 vestedERC20) {
         if (endTimestamp <= startTimestamp) {
             revert Error_InvalidTimeRange();
@@ -67,7 +68,8 @@ contract VestedERC20Factory {
             decimals,
             underlying,
             startTimestamp,
-            endTimestamp
+            endTimestamp,
+            owner
         );
         vestedERC20 = VestedERC20(address(implementation).clone(data));
         emit CreateVestedERC20(vestedERC20);

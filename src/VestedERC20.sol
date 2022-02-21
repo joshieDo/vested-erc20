@@ -22,7 +22,8 @@ contract VestedERC20 is ERC20 {
     /// -----------------------------------------------------------------------
     /// Errors
     /// -----------------------------------------------------------------------
-
+    error Error_Unauthorized();
+    error Error_RevokePeriodOver();
     error Error_Wrap_VestOver();
     error Error_Wrap_AmountTooLarge();
 
@@ -53,6 +54,51 @@ contract VestedERC20 is ERC20 {
     /// @return _endTimestamp The vest end timestamp
     function endTimestamp() public pure returns (uint64 _endTimestamp) {
         return _getArgUint64(0x5d);
+    }
+
+    /// @notice Owner
+    /// @return _owner The owner of the contract. Only capable of revoking, if 10% of the vesting period has not passed.
+    function owner() public pure returns (address _owner) {
+        return _getArgAddress(0x65);
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Owner actions
+    /// -----------------------------------------------------------------------
+
+    /// @notice Owner can revoke the remaining amount, if 10% of the vesting period has not passed.
+    function revoke(address recipient) external {
+        if (msg.sender != owner()) revert Error_Unauthorized();
+
+        uint256 _startTimestamp = startTimestamp();
+        uint256 _revokablePeriod = ((endTimestamp() - _startTimestamp) * 10) /
+            100;
+
+        if (block.timestamp >= _startTimestamp + _revokablePeriod) {
+            revert Error_RevokePeriodOver();
+        }
+
+        /// -------------------------------------------------------------------
+        /// State updates
+        /// -------------------------------------------------------------------
+
+        uint256 _claimedUnderlyingAmount = claimedUnderlyingAmount[recipient];
+        uint256 redeemedAmount = _getRedeemableAmount(
+            recipient,
+            _claimedUnderlyingAmount
+        );
+        uint256 remainingAmount = balanceOf[recipient] -
+            (_claimedUnderlyingAmount + redeemedAmount);
+
+        claimedUnderlyingAmount[recipient] += redeemedAmount + remainingAmount;
+
+        /// -------------------------------------------------------------------
+        /// Effects
+        /// -------------------------------------------------------------------
+
+        SolmateERC20 underlyingToken = SolmateERC20(underlying());
+        underlyingToken.safeTransfer(recipient, redeemedAmount);
+        underlyingToken.safeTransfer(address(0), remainingAmount);
     }
 
     /// -----------------------------------------------------------------------
@@ -264,11 +310,18 @@ contract VestedERC20 is ERC20 {
             // vest is over, everything is vested
             return balanceOf[holder] - holderClaimedUnderlyingAmount;
         } else {
-            // middle of vest, compute linear vesting
-            return
-                (balanceOf[holder] * (block.timestamp - _startTimestamp)) /
-                (_endTimestamp - _startTimestamp) -
-                holderClaimedUnderlyingAmount;
+            uint256 balance = balanceOf[holder];
+
+            // revoked
+            if (balance == holderClaimedUnderlyingAmount) {
+                return 0;
+            } else {
+                // middle of vest, compute linear vesting
+                return
+                    (balance * (block.timestamp - _startTimestamp)) /
+                    (_endTimestamp - _startTimestamp) -
+                    holderClaimedUnderlyingAmount;
+            }
         }
     }
 }

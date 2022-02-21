@@ -32,7 +32,8 @@ contract VestedERC20FactoryTest is DSTest {
             decimals,
             underlying,
             startTimestamp,
-            uint64(startTimestamp) + 365 days
+            uint64(startTimestamp) + 365 days,
+            msg.sender
         );
     }
 
@@ -53,7 +54,8 @@ contract VestedERC20FactoryTest is DSTest {
             decimals,
             underlying,
             startTimestamp,
-            uint64(startTimestamp) + 365 days
+            uint64(startTimestamp) + 365 days,
+            msg.sender
         );
 
         assertEq(vestedToken.name(), string(abi.encodePacked(name)));

@@ -30,7 +30,8 @@ contract VestedERC20Test is DSTest {
             18,
             address(underlying),
             uint64(block.timestamp + 1 days),
-            uint64(block.timestamp + 101 days)
+            uint64(block.timestamp + 101 days),
+            address(0x1337)
         );
         startTimestamp = block.timestamp + 1 days;
 
@@ -60,6 +61,53 @@ contract VestedERC20Test is DSTest {
     /// -------------------------------------------------------------------
     /// Correctness tests
     /// -------------------------------------------------------------------
+
+    function testCorrectness_Revoke(uint224 underlyingAmount) public {
+        address recipient = address(this);
+        uint256 initialBalance = underlying.balanceOf(recipient);
+
+        underlying.mint(address(this), underlyingAmount);
+
+        wrappedToken.wrap(underlyingAmount, recipient);
+
+        // only owner can revoke
+        vm.expectRevert(
+            abi.encodeWithSelector(VestedERC20.Error_Unauthorized.selector)
+        );
+        wrappedToken.revoke(recipient);
+
+        // warp after revokablePeriod
+        vm.warp(startTimestamp + 12 days);
+
+        // owner can only revoke if vesting period is less than 10% completed
+        vm.prank(address(0x1337));
+        vm.expectRevert(
+            abi.encodeWithSelector(VestedERC20.Error_RevokePeriodOver.selector)
+        );
+        wrappedToken.revoke(recipient);
+
+        // Successful revoke after 5 days
+        vm.warp(startTimestamp + 5 days);
+        uint256 redeemable = wrappedToken.getRedeemableAmount(recipient);
+
+        vm.prank(address(0x1337));
+        wrappedToken.revoke(recipient);
+
+        // revoke sent the redeemable amount to the recipient
+        assertEq(underlying.balanceOf(recipient), initialBalance + redeemable);
+
+        // but set that everything has been redeemed
+        assertEq(
+            wrappedToken.claimedUnderlyingAmount(recipient),
+            1 ether + uint256(underlyingAmount)
+        );
+
+        assertEq(wrappedToken.getRedeemableAmount(recipient), 0);
+
+        // cannot redeem anymore
+        vm.warp(startTimestamp + 102 days);
+        assertEq(wrappedToken.getRedeemableAmount(recipient), 0);
+    }
 
     function testCorrectness_wrapAndClaim_duringVest(uint224 underlyingAmount)
         public
