@@ -90,7 +90,8 @@ contract VestedERC20 is ERC20 {
         uint256 remainingAmount = balanceOf[recipient] -
             (_claimedUnderlyingAmount + redeemedAmount);
 
-        claimedUnderlyingAmount[recipient] += redeemedAmount + remainingAmount;
+        delete claimedUnderlyingAmount[recipient];
+        delete balanceOf[recipient];
 
         /// -------------------------------------------------------------------
         /// Effects
@@ -310,18 +311,11 @@ contract VestedERC20 is ERC20 {
             // vest is over, everything is vested
             return balanceOf[holder] - holderClaimedUnderlyingAmount;
         } else {
-            uint256 balance = balanceOf[holder];
-
-            // revoked
-            if (balance == holderClaimedUnderlyingAmount) {
-                return 0;
-            } else {
-                // middle of vest, compute linear vesting
-                return
-                    (balance * (block.timestamp - _startTimestamp)) /
-                    (_endTimestamp - _startTimestamp) -
-                    holderClaimedUnderlyingAmount;
-            }
+            // middle of vest, compute linear vesting
+            return
+                (balanceOf[holder] * (block.timestamp - _startTimestamp)) /
+                (_endTimestamp - _startTimestamp) -
+                holderClaimedUnderlyingAmount;
         }
     }
 }

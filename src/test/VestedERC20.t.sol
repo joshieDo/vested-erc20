@@ -93,13 +93,13 @@ contract VestedERC20Test is DSTest {
         vm.prank(address(0x1337));
         wrappedToken.revoke(recipient);
 
-        // revoke sent the redeemable amount to the recipient
+        // // revoke sent the redeemable amount to the recipient
         assertEq(underlying.balanceOf(recipient), initialBalance + redeemable);
 
         // but set that everything has been redeemed
         assertEq(
             wrappedToken.claimedUnderlyingAmount(recipient),
-            1 ether + uint256(underlyingAmount)
+            0
         );
 
         assertEq(wrappedToken.getRedeemableAmount(recipient), 0);
@@ -107,6 +107,13 @@ contract VestedERC20Test is DSTest {
         // cannot redeem anymore
         vm.warp(startTimestamp + 102 days);
         assertEq(wrappedToken.getRedeemableAmount(recipient), 0);
+        
+        vm.warp(startTimestamp + 20 days);
+        wrappedToken.wrap(10 ether, recipient);
+        vm.warp(startTimestamp + 1020 days);
+        assertEq(wrappedToken.getRedeemableAmount(recipient), 10 ether);
+        wrappedToken.redeem(recipient);
+
     }
 
     function testCorrectness_wrapAndClaim_duringVest(uint224 underlyingAmount)
