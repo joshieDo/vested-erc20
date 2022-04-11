@@ -70,14 +70,6 @@ contract VestedERC20 is ERC20 {
     function revoke(address recipient) external {
         if (msg.sender != owner()) revert Error_Unauthorized();
 
-        uint256 _startTimestamp = startTimestamp();
-        uint256 _revokablePeriod = ((endTimestamp() - _startTimestamp) * 10) /
-            100;
-
-        if (block.timestamp >= _startTimestamp + _revokablePeriod) {
-            revert Error_RevokePeriodOver();
-        }
-
         /// -------------------------------------------------------------------
         /// State updates
         /// -------------------------------------------------------------------
